@@ -1,21 +1,34 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
-  name: {{ .Chart.Name }}
+  name: {{ include "payment-gateway.fullname" . }}
   labels:
-    app: {{ .Chart.Name }}
+    {{- include "payment-gateway.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
-      app: {{ .Chart.Name }}
+      app: {{ include "payment-gateway.name" . }}
   template:
     metadata:
       labels:
-        app: {{ .Chart.Name }}
+        app: {{ include "payment-gateway.name" . }}
     spec:
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 80
+            - name: http
+              containerPort: 80
+              protocol: TCP
+  strategy:
+    canary:
+      steps:
+        - setWeight: 25
+        - pause: { duration: 10s }
+        - setWeight: 50
+        - pause: { duration: 10s }
+        - setWeight: 100
+        - pause: { duration: 10s }
